@@ -144,7 +144,7 @@ Cache frequently-accessed, rarely-changing data.
 **Pros:** Cache only what's actually requested. Resilient to cache failure.
 **Cons:** Initial cache miss is slow. Stale data after DB write.
 
-```
+\`\`\`
 def get_user(user_id):
     # 1. Check cache
     user = cache.get(f"user:{user_id}")
@@ -156,7 +156,7 @@ def get_user(user_id):
     # 3. Populate cache
     cache.set(f"user:{user_id}", user, ttl=3600)
     return user
-```
+\`\`\`
 
 ---
 
@@ -246,7 +246,7 @@ CDN = Content Delivery Network. Caches static assets (images, JS, CSS) close to 
 **Hash Index:** O(1) exact lookup. No range queries.
 **Composite Index:** Multi-column. Column ORDER matters. (a, b, c) helps queries on a, (a,b), (a,b,c) but NOT (b,c).
 
-```sql
+\`\`\`sql
 -- Create index
 CREATE INDEX idx_user_email ON users(email);
 CREATE INDEX idx_order_user_date ON orders(user_id, created_at);
@@ -256,7 +256,7 @@ SELECT * FROM orders WHERE user_id=1 AND created_at > '2024-01-01';
 
 -- Query that does NOT use (user_id, created_at) composite:
 SELECT * FROM orders WHERE created_at > '2024-01-01';  -- skips user_id
-```
+\`\`\`
 
 **EXPLAIN ANALYZE** to see if index is used.
 
@@ -335,12 +335,12 @@ Benefits:
 **Offset:** Position of message in partition. Consumer tracks its offset.
 **Consumer Group:** Multiple consumers sharing work from one topic. Each partition → exactly one consumer in group.
 
-```
+\`\`\`
 Topic: "user-events"
   Partition 0: [msg0, msg1, msg2, ...]  ← Consumer A reads this
   Partition 1: [msg0, msg1, msg2, ...]  ← Consumer B reads this
   Partition 2: [msg0, msg1, msg2, ...]  ← Consumer C reads this
-```
+\`\`\`
 
 ---
 
@@ -371,7 +371,7 @@ Store every state change as an immutable event in Kafka. Replay events to rebuil
 ## Idempotency ← Critical
 Messages can be delivered **at least once** (Kafka default). Consumer must be **idempotent**: processing same message twice has same effect as once.
 
-```python
+\`\`\`python
 # Not idempotent — do NOT do this:
 def process(order_id): charge_card(order_id)
 
@@ -380,7 +380,7 @@ def process(order_id):
     if not already_charged(order_id):
         charge_card(order_id)
         mark_charged(order_id)
-````,
+\`\`\``,
   },
   {
     id: 'api-design',
@@ -407,7 +407,7 @@ def process(order_id):
 
 ## URL Design (Resource-First)
 
-```
+\`\`\`
 ✅ GET    /users/123           → get user 123
 ✅ POST   /users               → create user
 ✅ PUT    /users/123           → replace user 123
@@ -418,7 +418,7 @@ def process(order_id):
 
 ❌ GET    /getUser?id=123      → verb in URL
 ❌ POST   /deleteUser/123      → wrong method
-```
+\`\`\`
 
 ## Status Codes (Memorise)
 
@@ -442,15 +442,15 @@ def process(order_id):
 ## Pagination
 
 **Offset pagination:** Simple but slow for large offsets.
-```
+\`\`\`
 GET /posts?limit=20&offset=100
-```
+\`\`\`
 
 **Cursor pagination:** Fast, consistent. Cursor = last seen ID.
-```
+\`\`\`
 GET /posts?limit=20&after=eyJpZCI6MTAwfQ==
 Response: { "data": [...], "next_cursor": "eyJpZCI6MTIwfQ==" }
-```
+\`\`\`
 Use cursor for large datasets and real-time feeds.
 
 ---
@@ -464,13 +464,13 @@ Use cursor for large datasets and real-time feeds.
 - **Leaky Bucket:** Requests processed at fixed rate. Queue smooths bursts.
 
 **Implementation:** Redis INCR + TTL for simple rate limiting.
-```python
+\`\`\`python
 def is_rate_limited(user_id, limit=100, window=60):
     key = f"rl:{user_id}:{int(time.time()//window)}"
     count = redis.incr(key)
     if count == 1: redis.expire(key, window)
     return count > limit
-```
+\`\`\`
 
 ---
 
@@ -536,7 +536,7 @@ Distributed unique ID (Twitter Snowflake): timestamp + machine ID + sequence.
 Convert to base62 for short URL.
 
 ### Data Model
-```sql
+\`\`\`sql
 CREATE TABLE urls (
     short_code VARCHAR(10) PRIMARY KEY,
     long_url TEXT NOT NULL,
@@ -547,7 +547,7 @@ CREATE TABLE urls (
 );
 
 CREATE INDEX idx_long_url ON urls(long_url);  -- dedup check
-```
+\`\`\`
 
 ### Flow
 **Write:**
@@ -564,10 +564,10 @@ CREATE INDEX idx_long_url ON urls(long_url);  -- dedup check
 4. Cache miss → query DB → store in cache → redirect
 
 ### Architecture
-```
+\`\`\`
 Client → Load Balancer → Write Service → DB + Cache
                       → Read Service → Cache → DB (fallback)
-```
+\`\`\`
 
 ---
 
@@ -633,7 +633,7 @@ When user opens timeline:
 
 ## Data Model
 
-```sql
+\`\`\`sql
 -- Tweets
 CREATE TABLE tweets (
     tweet_id BIGINT PRIMARY KEY,   -- Snowflake ID
@@ -653,13 +653,13 @@ CREATE TABLE follows (
 
 -- Home Timeline (cache in Redis)
 -- Redis Sorted Set: key="timeline:{user_id}", score=tweet_timestamp, member=tweet_id
-```
+\`\`\`
 
 ---
 
 ## System Components
 
-```
+\`\`\`
 Tweet POST:
 User → API → Fanout Service → Redis (follower timelines)
                             → Cassandra (permanent storage)
@@ -670,7 +670,7 @@ User → API → Redis (sorted set of tweet IDs)
            → Tweet Service (fetch tweet data by IDs)
            → [Merge celebrity tweets at read time]
            → Return sorted timeline
-```
+\`\`\`
 
 ---
 
@@ -714,7 +714,7 @@ User → API → Redis (sorted set of tweet IDs)
 
 ## Video Upload Pipeline
 
-```
+\`\`\`
 Raw Video → Upload Service → S3 (raw)
                            → Transcoding Service (parallelized)
                            ↓
@@ -724,7 +724,7 @@ Raw Video → Upload Service → S3 (raw)
                      - HLS / DASH (chunked)
                            ↓
                      CDN (CloudFront / Netflix Open Connect)
-```
+\`\`\`
 
 **Transcoding:** Video split into segments (2-4 sec each). Each segment transcoded independently in parallel. Reassembled after.
 
@@ -813,7 +813,7 @@ Why WebSocket over HTTP?
 
 ## Message Flow: Send Message
 
-```
+\`\`\`
 Sender → Chat Server A (via WebSocket)
   ↓
 1. Chat Server A checks: is recipient online?
@@ -825,14 +825,14 @@ Sender → Chat Server A (via WebSocket)
 2b. Recipient OFFLINE:
     Chat Server A → Message DB (Cassandra) → Push Notification (FCM/APNS)
     → Recipient comes online → Message Server fetches pending → deliver
-```
+\`\`\`
 
 ---
 
 ## Message Storage
 
 **Cassandra** for messages:
-```
+\`\`\`
 Table: messages
   Partition key: conversation_id
   Clustering key: message_id (Snowflake, time-ordered)
@@ -840,7 +840,7 @@ Table: messages
 Table: user_conversations
   Partition key: user_id
   Clustering key: last_message_time (DESC for latest first)
-```
+\`\`\`
 
 Store messages for N days (or indefinitely for users who haven't seen them).
 
